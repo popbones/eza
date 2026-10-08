@@ -29,6 +29,7 @@ impl FileFilter {
             ("show-symlinks", FFF::ShowSymlinks),
             ("dirs-last", FFF::ListDirsLast),
             ("dirs-first", FFF::ListDirsFirst),
+            ("hide-macos-hidden", FFF::HideMacosHidden),
         ] {
             if matches.get_flag(flag) {
                 filter_flags.push(filter_flag.clone());

@@ -24,6 +24,7 @@ export extern "eza" [
     --group-directories-first  # Sort directories before other files
     --group-directories-last   # Sort directories after other files
     --git-ignore               # Ignore files mentioned in '.gitignore'
+    --hide-macos-hidden        # Hide entries marked hidden by macOS (-a/-A override)
     --all(-a)                  # Show hidden and 'dot' files. Use this twice to also show the '.' and '..' directories
     --almost-all(-A)           # Equivalent to --all; included for compatibility with `ls -A`
     --treat-dirs-as-files(-d)  # List directories like regular files

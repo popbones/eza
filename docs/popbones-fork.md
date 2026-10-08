@@ -7,11 +7,20 @@ The personal branch is `popbones/develop`; upstream remains
 
 ## macOS hidden entries
 
-Directory listings hide dotfiles, entries with `UF_HIDDEN`, and entries with
-`kIsInvisible` in `com.apple.FinderInfo`. `-a` / `-A` (including combined short
-options) reveal them. This also applies to recursive and tree listings. Named
-paths remain accessible, and symlinks use their own visibility metadata even
-when `-X` is used. Missing or unreadable visibility metadata does not hide files.
+Default directory listings behave like upstream: dotfiles are hidden, while
+macOS visibility flags do not affect the listing. Add `--hide-macos-hidden` to
+hide entries with `UF_HIDDEN` or `kIsInvisible` in `com.apple.FinderInfo`.
+`-a` / `-A` (including combined short options) override this option and reveal
+them. This also applies to recursive and tree listings. Named paths remain
+accessible, and symlinks use their own visibility metadata even when `-X` is
+used. Missing or unreadable visibility metadata does not hide files. The option
+has no effect on other platforms.
+
+To opt in through a shell alias:
+
+```sh
+alias eza='eza --hide-macos-hidden'
+```
 
 ## Daily upstream maintenance
 

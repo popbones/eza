@@ -41,6 +41,9 @@ pub enum FileFilterFlags {
     /// Whether directories should be listed as the last items, after other
     /// types of file. Some users prefer it like this.
     ListDirsLast,
+
+    /// Whether to hide entries marked hidden by macOS unless -a/-A is given.
+    HideMacosHidden,
 }
 
 /// The **file filter** processes a list of files before displaying them to
@@ -98,6 +101,13 @@ impl FileFilter {
     #[rustfmt::skip]
     pub fn filter_child_files(&self, is_recurse: bool, files: &mut Vec<File<'_>>) {
         use FileFilterFlags::{NoSymlinks, OnlyDirs, OnlyFiles, ShowSymlinks};
+
+        #[cfg(target_os = "macos")]
+        if self.flags.contains(&FileFilterFlags::HideMacosHidden)
+            && self.dot_filter == DotFilter::JustFiles
+        {
+            files.retain(|f| !crate::fs::feature::macos::is_hidden(f));
+        }
 
         files.retain(|f| !self.ignore_patterns.is_ignored(&f.name));
         files.retain(|f| {

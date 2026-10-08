@@ -89,7 +89,7 @@ fn finder_flags(path: &Path, flags: u16) {
 }
 
 #[test]
-fn hides_both_macos_flags_and_dotfiles_but_keeps_other_finder_flags() {
+fn macos_visibility_is_opt_in_and_all_options_override_it() {
     let fixture = Fixture::new();
     fixture.file("visible");
     fixture.file(".dotfile");
@@ -102,7 +102,21 @@ fn hides_both_macos_flags_and_dotfiles_but_keeps_other_finder_flags() {
     hidden_flag(&fixture.dir("bsd-hidden-dir"));
     finder_flags(&fixture.dir("finder-hidden-dir"), 0x4000);
 
-    assert_eq!(fixture.list(&[]), "custom-icon-visible\nvisible\n");
+    let default = fixture.list(&[]);
+    for name in [
+        "bsd-hidden",
+        "finder-hidden",
+        "Icon",
+        "bsd-hidden-dir",
+        "finder-hidden-dir",
+    ] {
+        assert!(default.contains(name), "{default}");
+    }
+    assert!(!default.contains(".dotfile"), "{default}");
+    assert_eq!(
+        fixture.list(&["--hide-macos-hidden"]),
+        "custom-icon-visible\nvisible\n"
+    );
     for args in [
         vec!["-a"],
         vec!["-A"],
@@ -111,9 +125,17 @@ fn hides_both_macos_flags_and_dotfiles_but_keeps_other_finder_flags() {
         vec!["-aa"],
         vec!["-la"],
     ] {
-        let output = fixture.list(&args);
-        for name in [".dotfile", "bsd-hidden", "finder-hidden", "Icon"] {
-            assert!(output.contains(name), "{args:?}: {output}");
+        for prepend in [false, true] {
+            let mut args = args.clone();
+            if prepend {
+                args.insert(0, "--hide-macos-hidden");
+            } else {
+                args.push("--hide-macos-hidden");
+            }
+            let output = fixture.list(&args);
+            for name in [".dotfile", "bsd-hidden", "finder-hidden", "Icon"] {
+                assert!(output.contains(name), "{args:?}: {output}");
+            }
         }
     }
 }
@@ -131,10 +153,13 @@ fn filters_hidden_subtrees_and_nested_entries_in_recursive_and_tree_views() {
     fs::write(visible_dir.join("nested-visible"), "").unwrap();
 
     for mode in ["-R", "-T"] {
-        let output = fixture.list(&[mode]);
+        let default = fixture.list(&[mode]);
+        assert!(default.contains("inside-hidden-dir"), "{default}");
+        assert!(default.contains("nested-hidden"), "{default}");
+        let output = fixture.list(&[mode, "--hide-macos-hidden"]);
         assert!(output.contains("nested-visible"), "{output}");
         assert!(!output.contains("hidden"), "{output}");
-        let output = fixture.list(&[mode, "-a"]);
+        let output = fixture.list(&[mode, "--hide-macos-hidden", "-a"]);
         assert!(output.contains("inside-hidden-dir"), "{output}");
         assert!(output.contains("nested-hidden"), "{output}");
     }
@@ -157,6 +182,7 @@ fn explicitly_named_hidden_files_and_directories_remain_accessible() {
             .current_dir(&fixture.0)
             .env_clear()
             .arg("--color=never")
+            .arg("--hide-macos-hidden")
             .args(args)
             .output()
             .unwrap();
@@ -178,7 +204,11 @@ fn symlink_visibility_uses_the_entry_even_when_dereferencing() {
     hidden_flag(&hidden_link);
     symlink("missing", fixture.0.join("broken-link")).unwrap();
 
-    for args in [vec![], vec!["-X"]] {
+    assert!(fixture.list(&[]).contains("hidden-link"));
+    for args in [
+        vec!["--hide-macos-hidden"],
+        vec!["--hide-macos-hidden", "-X"],
+    ] {
         let output = fixture.list(&args);
         assert!(output.contains("visible-link"), "{output}");
         assert!(output.contains("visible-finder-link"), "{output}");
@@ -188,5 +218,9 @@ fn symlink_visibility_uses_the_entry_even_when_dereferencing() {
             "{output}"
         );
     }
-    assert!(fixture.list(&["-a"]).contains("hidden-link"));
+    assert!(
+        fixture
+            .list(&["--hide-macos-hidden", "-a"])
+            .contains("hidden-link")
+    );
 }
