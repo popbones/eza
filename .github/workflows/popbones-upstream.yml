@@ -84,7 +84,7 @@ jobs:
           git rev-parse HEAD > dist/commit.txt
           git rev-parse refs/remotes/upstream/main > dist/upstream.txt
           uname -sm > dist/platform.txt
-          shasum -a 256 dist/eza > dist/SHA256SUMS
+          (cd dist && shasum -a 256 eza > SHA256SUMS)
 
       - name: Publish validated rebase with a recovery branch
         if: github.event_name != 'push'
