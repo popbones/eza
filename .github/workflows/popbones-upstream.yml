@@ -1,0 +1,108 @@
+# SPDX-FileCopyrightText: 2026 Popbones
+# SPDX-License-Identifier: EUPL-1.2
+name: Popbones upstream rebase and build
+
+on:
+  schedule:
+    - cron: '17 19 * * *'
+  push:
+    branches: [popbones/develop]
+  workflow_dispatch:
+    inputs:
+      test_failure_notification:
+        description: 'Intentionally fail before checkout to test GitHub failure emails (no branch changes)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: popbones-upstream-sync
+  cancel-in-progress: false
+
+jobs:
+  rebase-test-build:
+    # Deploy-key pushes trigger Actions; skip the bot's already-validated rebase.
+    if: >-
+      github.repository == 'popbones/eza' && github.ref == 'refs/heads/popbones/develop' &&
+      (github.event_name != 'push' || github.event.head_commit.committer.email != '41898282+github-actions[bot]@users.noreply.github.com')
+    runs-on: macos-latest
+    timeout-minutes: 30
+    env:
+      CARGO_TERM_COLOR: always
+      RUSTFLAGS: --deny warnings
+    steps:
+      - name: Test failure email notification
+        if: github.event_name == 'workflow_dispatch' && inputs.test_failure_notification
+        run: |
+          echo 'Intentional failure to verify GitHub Actions email delivery. No checkout, rebase, or push was attempted.' >> "$GITHUB_STEP_SUMMARY"
+          echo '::error::Intentional failure email test; repository branches were not changed.'
+          exit 1
+
+      - name: Check out personal branch
+        uses: actions/checkout@v6
+        with:
+          ref: popbones/develop
+          fetch-depth: 0
+          ssh-key: ${{ secrets.UPSTREAM_SYNC_SSH_KEY }}
+
+      - name: Configure rebase identity
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+      - name: Rebase onto upstream main
+        id: rebase
+        run: bash .github/scripts/rebase-upstream.sh
+
+      - name: Install repository Rust toolchain
+        run: |
+          toolchain=$(sed -n 's/^channel = "\(.*\)"/\1/p' rust-toolchain.toml)
+          rustup toolchain install "$toolchain" --profile minimal --component rustfmt,clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Check formatting
+        run: cargo fmt --check
+
+      - name: Test upstream rebase handling
+        run: python3 -B -m unittest discover -s tests -p 'test_upstream_sync.py' -v
+
+      - name: Test eza including macOS hidden metadata
+        run: cargo test --locked
+
+      - name: Check lints
+        run: cargo clippy --locked --all-targets -- -D warnings
+
+      - name: Build macOS release
+        run: |
+          cargo build --locked --release
+          mkdir -p dist
+          cp target/release/eza dist/eza
+          target/release/eza --version > dist/version.txt
+          git rev-parse HEAD > dist/commit.txt
+          git rev-parse refs/remotes/upstream/main > dist/upstream.txt
+          uname -sm > dist/platform.txt
+          shasum -a 256 dist/eza > dist/SHA256SUMS
+
+      - name: Publish validated rebase with a recovery branch
+        if: github.event_name != 'push'
+        env:
+          BEFORE_SHA: ${{ steps.rebase.outputs.before_sha }}
+          AFTER_SHA: ${{ steps.rebase.outputs.after_sha }}
+        run: bash .github/scripts/publish-rebase.sh
+
+      - name: Save macOS binary and provenance
+        uses: actions/upload-artifact@v4
+        with:
+          name: eza-macos-${{ runner.arch }}-${{ steps.rebase.outputs.after_sha }}
+          path: dist/
+          retention-days: 14
+
+      - name: Failure notification details
+        if: failure()
+        run: |
+          echo '### Failure notification' >> "$GITHUB_STEP_SUMMARY"
+          echo 'GitHub sends this failed run to the triggering/schedule-owning user when Actions email notifications are enabled in their account settings.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Review the failed step above. A failed rebase, test, or build does not publish the candidate branch.' >> "$GITHUB_STEP_SUMMARY"
