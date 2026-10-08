@@ -26,7 +26,7 @@ use chrono::prelude::*;
 fn main() -> io::Result<()> {
     #![allow(clippy::write_with_newline)]
 
-    let tagline = "eza - Popbones fork with macOS hidden-file support";
+    let tagline = "Popbones fork with macOS hidden-file support";
     let url = "https://github.com/popbones/eza";
 
     let ver = if is_debug_build() {
