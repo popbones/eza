@@ -150,6 +150,10 @@ FILTERING AND SORTING OPTIONS
 `-a`, `--all`
 : Show hidden and “dot” files.
 Use this twice to also show the ‘`.`’ and ‘`..`’ directories.
+On macOS, hidden entries include files and directories with the `UF_HIDDEN`
+file flag or Finder's `kIsInvisible` flag in `com.apple.FinderInfo`.
+These entries are omitted from directory listings by default, including recursive
+and tree listings. Explicitly named paths remain accessible.
 
 `-A`, `--almost-all`
 : Equivalent to --all; included for compatibility with `ls -A`.

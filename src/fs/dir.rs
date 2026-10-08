@@ -181,6 +181,12 @@ impl<'dir> Files<'dir, '_> {
                     entry.file_type().ok(),
                 );
 
+                // Finder-hidden entries follow the same -a/-A policy as dotfiles.
+                #[cfg(target_os = "macos")]
+                if !self.dotfiles && crate::fs::feature::macos::is_hidden(&file) {
+                    continue;
+                }
+
                 // Windows has its own concept of hidden files, when dotfiles are
                 // hidden Windows hidden files should also be filtered out
                 #[cfg(windows)]

@@ -6,6 +6,9 @@
 // SPDX-License-Identifier: MIT
 pub mod xattr;
 
+#[cfg(target_os = "macos")]
+pub mod macos;
+
 #[cfg(feature = "git")]
 pub mod git;
 
